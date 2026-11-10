@@ -1,0 +1,218 @@
+<?php
+/**
+ * Base action: delivers a mapped payload to a destination service.
+ *
+ * @package WPIntegrations\MailerLiteConnector
+ */
+
+namespace WPIntegrations\MailerLiteConnector\Integrations;
+
+use WPIntegrations\MailerLiteConnector\Delivery\Result;
+use WPIntegrations\MailerLiteConnector\Services\Crypto;
+
+defined( 'ABSPATH' ) || exit;
+
+abstract class Action {
+
+	/** Unique action key, e.g. 'mailerlite'. */
+	abstract public function key(): string;
+
+	/** Human label for the admin UI. */
+	abstract public function label(): string;
+
+	/**
+	 * Deliver the payload for a flow.
+	 *
+	 * @param object $flow    Flow row (field_map/settings decoded).
+	 * @param array  $payload Normalized submission: ['fields' => [...]].
+	 */
+	abstract public function execute( object $flow, array $payload ): Result;
+
+	/**
+	 * Destination fields offered by the mapping UI.
+	 *
+	 * Declare only the fields execute() delivers.
+	 *
+	 * @return array<int, array{key:string, label:string, required?:bool, group?:string}>
+	 */
+	public function target_fields(): array {
+		return array();
+	}
+
+	/**
+	 * Global (site-wide) credential fields, e.g. an API key.
+	 *
+	 * @return array<int, array{key:string, label:string, secret?:bool}>
+	 */
+	public function global_fields(): array {
+		return array();
+	}
+
+	/**
+	 * Whether the site-wide connection this action delivers through is set up,
+	 * so the admin app can ask for it before an integration is created. The
+	 * default treats every declared global field as required.
+	 */
+	public function connected(): bool {
+		foreach ( $this->global_fields() as $field ) {
+			if ( '' === $this->credential( $field['key'] ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Per-flow settings shown in the flow editor, e.g. the groups to add to.
+	 *
+	 * Extra keys the editor understands:
+	 *  - 'type'           'select' or 'boolean'; anything else is a text input.
+	 *                     A boolean stores '1' or '', so read it with empty().
+	 *  - 'options_source' Key passed to discover_options(), so a select can
+	 *                     offer the account's own values.
+	 *  - 'multiple'       The select stores a list instead of a single value.
+	 *  - 'depends_on'     field-key => allowed values; the field renders only
+	 *                     while it matches. A non-array value means "truthy",
+	 *                     which is how a boolean gates the fields under it.
+	 *  - 'default'        Applied to new flows only; existing ones are never
+	 *                     back-filled.
+	 *  - 'below'          A boolean renders below the field map with the
+	 *                     settings it gates, instead of above it.
+	 *
+	 * @return array<int, array{key:string, label:string, help?:string, required?:bool, type?:string, default?:mixed, options?:array, options_source?:string, depends_on?:array<string, array>}>
+	 */
+	public function flow_fields(): array {
+		return array();
+	}
+
+	/**
+	 * Per-flow connection credentials from the editor's Connect step. Stored in
+	 * the flow's settings; secrets are encrypted and masked before they leave.
+	 *
+	 * @return array<int, array{key:string, label:string, secret?:bool}>
+	 */
+	public function connection_fields(): array {
+		return array();
+	}
+
+	/**
+	 * Verify credentials against the service without creating data there.
+	 *
+	 * @param array<string, string> $credentials Plain-text credentials keyed by connection field.
+	 */
+	public function test_connection( array $credentials ): Result {
+		return Result::failure( __( 'This destination does not support connection tests.', 'wpintegrations-connector-for-mailerlite' ) );
+	}
+
+	/**
+	 * The connected account's own fields, customs included, so the mapping UI
+	 * can offer more than target_fields().
+	 *
+	 * @param array<string, string> $credentials Plain-text credentials keyed by connection field.
+	 * @param bool                  $refresh     Bypass any cached field list.
+	 * @return array<int, array{key:string, label:string, custom:bool}>|null Null when discovery
+	 *         is unsupported or unauthorized; callers fall back to target_fields().
+	 */
+	public function discover_target_fields( array $credentials, bool $refresh = false ): ?array {
+		return null;
+	}
+
+	/**
+	 * Options for a flow_field whose 'options_source' matches $key, fetched from
+	 * the service instead of hardcoded.
+	 *
+	 * @param string               $key      The flow_field's options_source value.
+	 * @param array<string, mixed> $settings Current flow settings, so dependent
+	 *                                       lists can narrow (e.g. stages within
+	 *                                       a chosen pipeline).
+	 * @return array<int, array{value:string, label:string}> Empty when the key is
+	 *         unknown or the list could not be fetched.
+	 */
+	public function discover_options( string $key, array $settings ): array {
+		return array();
+	}
+
+	/**
+	 * Check a flow's mapping and settings against what the destination needs
+	 * before it is saved, beyond what target_fields() can say per field
+	 * (e.g. "at least one of these").
+	 *
+	 * @param array<int, array{source:string, target:string}> $field_map Sanitized field map.
+	 * @param array<string, mixed>                            $settings  Sanitized settings.
+	 * @return string|null An error message, or null when the flow is valid.
+	 */
+	public function validate_flow( array $field_map, array $settings ): ?string {
+		return null;
+	}
+
+	/**
+	 * Apply a flow's field map to a submission. A pair's source is a form field.
+	 *
+	 * @param object $flow    Flow row.
+	 * @param array  $payload Normalized submission.
+	 * @return array<string, string> target_key => value.
+	 */
+	protected function map_fields( object $flow, array $payload ): array {
+		$fields = (array) ( $payload['fields'] ?? array() );
+		$mapped = array();
+
+		foreach ( (array) $flow->field_map as $pair ) {
+			$source = isset( $pair['source'] ) ? (string) $pair['source'] : '';
+			$target = isset( $pair['target'] ) ? (string) $pair['target'] : '';
+			if ( '' === $source || '' === $target ) {
+				continue;
+			}
+
+			if ( array_key_exists( $source, $fields ) ) {
+				$value = $fields[ $source ];
+				if ( is_array( $value ) ) {
+					$value = implode( ', ', array_map( 'strval', $value ) );
+				}
+			} else {
+				continue;
+			}
+
+			$mapped[ $target ] = (string) $value;
+		}
+
+		return $mapped;
+	}
+
+	/**
+	 * Read a stored global credential, decrypting secrets.
+	 */
+	protected function credential( string $key ): string {
+		$settings = (array) get_option( 'wpi_mlite_settings', array() );
+		$stored   = $settings['actions'][ $this->key() ][ $key ] ?? '';
+		if ( '' === $stored ) {
+			return '';
+		}
+
+		foreach ( $this->global_fields() as $field ) {
+			if ( $field['key'] === $key && ! empty( $field['secret'] ) ) {
+				return ( new Crypto() )->decrypt( $stored );
+			}
+		}
+		return (string) $stored;
+	}
+
+	/**
+	 * Read a connection credential stored on a flow, decrypting secrets.
+	 *
+	 * @param object $flow Flow row (settings decoded).
+	 */
+	protected function flow_credential( object $flow, string $key ): string {
+		$settings = (array) $flow->settings;
+		$stored   = isset( $settings[ $key ] ) ? (string) $settings[ $key ] : '';
+		if ( '' === $stored ) {
+			return '';
+		}
+
+		foreach ( $this->connection_fields() as $field ) {
+			if ( $field['key'] === $key && ! empty( $field['secret'] ) ) {
+				return ( new Crypto() )->decrypt( $stored );
+			}
+		}
+		return $stored;
+	}
+}
