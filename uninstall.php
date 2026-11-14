@@ -38,7 +38,7 @@ delete_option( 'wpi_mlite_migrations' );
 delete_option( 'wpi_mlite_recent_shapes' );
 
 // Transients: each form plugin's scan cache, plus MailerLite group
-// caches swept by prefix (they are keyed by a hash of the API key).
+// and field caches swept by prefix (they are keyed by a hash of the API key).
 foreach ( array( 'elementor', 'cf7', 'wpforms', 'fluentform', 'gravityforms' ) as $wpi_mlite_trigger ) {
 	delete_transient( 'wpi_mlite_' . $wpi_mlite_trigger . '_forms' );
 }

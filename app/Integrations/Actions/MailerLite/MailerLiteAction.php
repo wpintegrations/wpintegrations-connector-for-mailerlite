@@ -7,8 +7,8 @@
  * authenticates with a Bearer token; there is no OAuth.
  *
  * The email identifies the subscriber; every other mapped target is sent as
- * the MailerLite field of that key. Only the built-in fields every account
- * has are offered; custom fields are a Pro feature.
+ * the MailerLite field of that key, in the type the field takes. The field
+ * list is the connected account's own, custom fields included.
  *
  * @package WPIntegrations\MailerLiteConnector
  */
@@ -32,13 +32,17 @@ final class MailerLiteAction extends Action {
 	/** MailerLite's limit for a text field. */
 	const TEXT_MAX = 1024;
 
+	/** Page size for GET /fields, and the page cap. */
+	const FIELDS_PAGE_SIZE = 100;
+	const FIELDS_MAX_PAGES = 5;
+
 	/**
 	 * Mapping target for a consent checkbox: a submission where it is empty
 	 * is not sent at all.
 	 */
 	const CONSENT_TARGET = '_consent';
 
-	/** The built-in fields every MailerLite account has, all text. */
+	/** The fields every MailerLite account has, used until the account's own list is read. */
 	const DEFAULT_FIELDS = array(
 		'name'      => 'Name',
 		'last_name' => 'Last name',
@@ -76,7 +80,8 @@ final class MailerLiteAction extends Action {
 	}
 
 	/**
-	 * The email, the built-in fields and the consent gate.
+	 * The email, every field of the connected account — the built-in ones and
+	 * the account's own custom fields — and the consent gate.
 	 */
 	public function target_fields(): array {
 		$targets = array(
@@ -87,10 +92,10 @@ final class MailerLiteAction extends Action {
 			),
 		);
 
-		foreach ( self::DEFAULT_FIELDS as $field_key => $name ) {
+		foreach ( $this->account_fields() as $field ) {
 			$targets[] = array(
-				'key'   => $field_key,
-				'label' => 'name' === $field_key ? __( 'Name (first name)', 'wpintegrations-connector-for-mailerlite' ) : $name,
+				'key'   => $field['key'],
+				'label' => 'name' === $field['key'] ? __( 'Name (first name)', 'wpintegrations-connector-for-mailerlite' ) : $field['name'],
 			);
 		}
 
@@ -195,10 +200,11 @@ final class MailerLiteAction extends Action {
 		}
 
 		// The email is a top-level property; every other mapped target is a
-		// built-in field of that key. Anything else is left out.
+		// field of that key.
 		$email   = '';
 		$fields  = array();
 		$consent = null;
+		$types   = $this->field_types();
 		foreach ( $this->map_fields( $flow, $payload ) as $target => $value ) {
 			$target = strtolower( trim( (string) $target ) );
 			$value  = trim( (string) $value );
@@ -206,8 +212,11 @@ final class MailerLiteAction extends Action {
 				$email = $value;
 			} elseif ( self::CONSENT_TARGET === $target ) {
 				$consent = $value;
-			} elseif ( isset( self::DEFAULT_FIELDS[ $target ] ) && '' !== $value ) {
-				$fields[ $target ] = mb_substr( sanitize_text_field( $value ), 0, self::TEXT_MAX );
+			} elseif ( '' !== $target && '' !== $value ) {
+				$typed = $this->typed( $value, $types[ $target ] ?? 'text' );
+				if ( null !== $typed ) {
+					$fields[ $target ] = $typed;
+				}
 			}
 		}
 
@@ -300,6 +309,105 @@ final class MailerLiteAction extends Action {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * A value in the shape the field takes: MailerLite's fields are text,
+	 * number or date. Null when it cannot be one, so a bad value is left out
+	 * instead of failing the whole sign-up.
+	 *
+	 * @return string|int|float|null
+	 */
+	private function typed( string $value, string $type ) {
+		if ( 'number' === $type ) {
+			$number = str_replace( array( ' ', ',' ), array( '', '.' ), $value );
+			return is_numeric( $number ) ? $number + 0 : null;
+		}
+		if ( 'date' === $type ) {
+			$time = strtotime( $value );
+			return false === $time ? null : gmdate( 'Y-m-d', $time );
+		}
+		return mb_substr( sanitize_text_field( $value ), 0, self::TEXT_MAX );
+	}
+
+	/**
+	 * The account's fields — built-in and custom — or the built-in ones when
+	 * the account cannot be read (no token yet, or MailerLite unreachable).
+	 *
+	 * @return array<int, array{key:string, name:string, type:string}>
+	 */
+	private function account_fields(): array {
+		$key = $this->credential( 'api_key' );
+		if ( '' !== $key ) {
+			$cache_key = $this->cache_key( 'fields', $key );
+			$cached    = get_transient( $cache_key );
+			if ( is_array( $cached ) && $cached ) {
+				return $cached;
+			}
+
+			$fields = array();
+			for ( $page = 1; $page <= self::FIELDS_MAX_PAGES; $page++ ) {
+				$response = $this->http->get(
+					add_query_arg(
+						array(
+							'limit' => self::FIELDS_PAGE_SIZE,
+							'page'  => $page,
+						),
+						self::BASE_URL . '/fields'
+					),
+					$this->headers( $key )
+				);
+				if ( ! $response->ok || ! is_array( $response->body ) ) {
+					$fields = array();
+					break;
+				}
+				$batch = (array) ( $response->body['data'] ?? array() );
+				foreach ( $batch as $field ) {
+					$field_key = sanitize_key( (string) ( $field['key'] ?? '' ) );
+					if ( '' === $field_key || 'email' === $field_key ) {
+						continue;
+					}
+					$fields[] = array(
+						'key'  => $field_key,
+						'name' => sanitize_text_field( (string) ( $field['name'] ?? $field_key ) ),
+						'type' => in_array( $field['type'] ?? '', array( 'number', 'date' ), true ) ? $field['type'] : 'text',
+					);
+				}
+				$last = (int) ( $response->body['meta']['last_page'] ?? 0 );
+				if ( count( $batch ) < self::FIELDS_PAGE_SIZE || ( $last && $page >= $last ) ) {
+					break;
+				}
+			}
+
+			if ( $fields ) {
+				// Short-lived: a field added in MailerLite should show up soon.
+				set_transient( $cache_key, $fields, 10 * MINUTE_IN_SECONDS );
+				return $fields;
+			}
+		}
+
+		$defaults = array();
+		foreach ( self::DEFAULT_FIELDS as $field_key => $name ) {
+			$defaults[] = array(
+				'key'  => $field_key,
+				'name' => $name,
+				'type' => 'text',
+			);
+		}
+		return $defaults;
+	}
+
+	/**
+	 * Field key => type.
+	 *
+	 * @return array<string, string>
+	 */
+	private function field_types(): array {
+		$types = array();
+		foreach ( $this->account_fields() as $field ) {
+			$types[ $field['key'] ] = $field['type'];
+		}
+		return $types;
 	}
 
 	/**

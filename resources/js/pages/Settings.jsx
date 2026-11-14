@@ -6,7 +6,6 @@ import BrandLoader from '../components/BrandLoader'
 
 // What the separate Pro plugin offers, as the readme lists it.
 const PRO_FEATURES = [
-  'Your MailerLite custom fields, with numbers and dates sent in the right format',
   'Smart values — page URL, submission time, the logged-in user, site details — and fixed values',
   'The visitor’s IP address and sign-up time recorded on new subscribers',
   'Groups chosen by the visitor’s answers',

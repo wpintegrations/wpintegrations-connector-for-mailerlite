@@ -26,7 +26,7 @@ One plugin covers them all: each integration picks a form plugin, then a form, t
 
 = Why this plugin =
 
-* **MailerLite's built-in fields** — map your form's fields to the subscriber's email, name, last name, company, phone, country, state, city and zip. No renaming form fields to match MailerLite.
+* **Every MailerLite field, custom fields included** — map your form's fields to the subscriber's email, the built-in fields (name, last name, company, phone, country, state, city, zip) and your account's own custom fields, read live from MailerLite. Numbers and dates are sent in the format MailerLite expects. No renaming form fields to match MailerLite.
 * **Name parts** — a WPForms, Fluent Forms or Gravity Forms name field offers first and last name separately, so they land in the right MailerLite fields.
 * **Groups** — add every subscriber from a form to one or more MailerLite groups, picked from your account's own groups. Groups a subscriber is already in are kept.
 * **Consent checkbox** — map your form's consent box, and only people who tick it are added.
@@ -38,7 +38,7 @@ One plugin covers them all: each integration picks a form plugin, then a form, t
 = What this free version includes =
 
 * Unlimited integrations, across all five form plugins
-* Email, name, last name, company, phone, country, state, city and zip
+* Email, every built-in field and your own custom fields, with numbers and dates sent in the right format
 * A consent checkbox that decides whether the person is added
 * New subscribers as active or unconfirmed (double opt-in), or following your MailerLite setting
 * Add subscribers, or update the ones that already exist, identified by email
@@ -50,7 +50,6 @@ One plugin covers them all: each integration picks a form plugin, then a form, t
 
 A separate Pro plugin, sold on [wpintegrations.net](https://wpintegrations.net/plugins/), adds:
 
-* Your MailerLite custom fields, with numbers and dates sent in the format MailerLite expects
 * Smart values resolved at submission time — page URL, submission time, the logged-in user's name and email, site title and URL — and fixed values
 * The visitor's IP address and sign-up time recorded on new subscribers, as proof of sign-up
 * Groups chosen by the visitor's answers
@@ -82,8 +81,8 @@ This plugin is built by WPIntegrations and is not affiliated with, endorsed by, 
 This plugin connects to the **MailerLite API** (operated by MailerLite, https://www.mailerlite.com/). Nothing is sent until you save an API token, and form data is sent only when a form that has an integration is submitted.
 
 * **What is sent:** the email and the form fields you explicitly map, the groups you chose for the integration, the status you chose for new subscribers, and — when you turn it on — the request to resubscribe someone who had unsubscribed. With "Update subscribers that already exist" off, or a status chosen for new subscribers, the email is first looked up in your subscribers. Nothing is sent when a mapped consent box is left empty.
-* **What is read:** your groups (so you can pick them, and to confirm the connection).
-* **Where:** `https://connect.mailerlite.com/api/subscribers`, `https://connect.mailerlite.com/api/subscribers/{email}` and `https://connect.mailerlite.com/api/groups`, authenticated with your own API token.
+* **What is read:** your groups (so you can pick them, and to confirm the connection) and your subscriber fields (so you can map them).
+* **Where:** `https://connect.mailerlite.com/api/subscribers`, `https://connect.mailerlite.com/api/subscribers/{email}`, `https://connect.mailerlite.com/api/groups` and `https://connect.mailerlite.com/api/fields`, authenticated with your own API token.
 
 No data is sent to WPIntegrations or any other third party. MailerLite terms of use: https://www.mailerlite.com/legal/terms-of-service — privacy policy: https://www.mailerlite.com/legal/privacy-policy
 
@@ -113,7 +112,7 @@ Map your consent checkbox to "Consent — only add the person when this is ticke
 
 = Which MailerLite fields can I map? =
 
-Email, name, last name, company, phone, country, state, city and zip — the fields every MailerLite account has. Your own custom fields are mapped with the Pro version.
+Email and every field of your MailerLite account: the built-in ones (name, last name, company, phone, country, state, city, zip) and the custom fields you created. The list is read from your account, so a field you add in MailerLite shows up in the mapping within a few minutes. Number and date fields get their values in the format MailerLite expects; a value that is not a valid number or date is left out instead of failing the sign-up.
 
 = Someone unsubscribed and filled in the form again, but they are still unsubscribed =
 
@@ -138,4 +137,4 @@ The **Logs** tab shows every delivery with the full request and response.
 == Changelog ==
 
 = 1.0.0 =
-* Initial release: Contact Form 7, Elementor Pro, WPForms, Fluent Forms and Gravity Forms submissions to MailerLite subscribers and groups, with MailerLite's built-in fields, a consent checkbox, double opt-in, a delivery log and encrypted API token storage.
+* Initial release: Contact Form 7, Elementor Pro, WPForms, Fluent Forms and Gravity Forms submissions to MailerLite subscribers and groups, with every MailerLite field including custom fields, a consent checkbox, double opt-in, a delivery log and encrypted API token storage.
