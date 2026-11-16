@@ -4,7 +4,7 @@ Tags: mailerlite, contact form 7, wpforms, gravity forms, newsletter
 Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,7 +48,7 @@ One plugin covers them all: each integration picks a form plugin, then a form, t
 
 = Pro version =
 
-A separate Pro plugin, sold on [wpintegrations.net](https://wpintegrations.net/plugins/), adds:
+A separate Pro plugin, sold on [wpintegrations.net](https://wpintegrations.net/plugins/connect-wordpress-forms-to-mailerlite/), adds:
 
 * Smart values resolved at submission time — page URL, submission time, the logged-in user's name and email, site title and URL — and fixed values
 * The visitor's IP address and sign-up time recorded on new subscribers, as proof of sign-up
@@ -91,6 +91,8 @@ No data is sent to WPIntegrations or any other third party. MailerLite terms of 
 1. Install and activate the plugin.
 2. In MailerLite, create an API token under **Integrations → MailerLite API**. Paste it on the plugin's **Settings** tab, save, and use **Test connection**.
 3. Open the **Integrations** tab and create an integration: pick the form plugin and the form, map the fields, choose groups, and save.
+
+The full walkthrough, consent and double opt-in included, is in the [getting-started guide](https://wpintegrations.net/docs/wordpress-forms-mailerlite-getting-started/).
 
 == Frequently Asked Questions ==
 
@@ -135,6 +137,9 @@ In `resources/js/` inside the plugin, and publicly at [github.com/wpintegrations
 The **Logs** tab shows every delivery with the full request and response.
 
 == Changelog ==
+
+= 1.0.1 =
+* The Pro card on the Settings page now links to the plugin's own page on wpintegrations.net.
 
 = 1.0.0 =
 * Initial release: Contact Form 7, Elementor Pro, WPForms, Fluent Forms and Gravity Forms submissions to MailerLite subscribers and groups, with every MailerLite field including custom fields, a consent checkbox, double opt-in, a delivery log and encrypted API token storage.

@@ -16,7 +16,7 @@ final class AdminServiceProvider extends ServiceProvider {
 	const MENU_SLUG = 'wpintegrations-connector-for-mailerlite';
 
 	/** The plugin's page on wpintegrations.net, which also describes the separate Pro plugin. */
-	const PRO_URL = 'https://wpintegrations.net/plugins/';
+	const PRO_URL = 'https://wpintegrations.net/plugins/connect-wordpress-forms-to-mailerlite/';
 
 	/**
 	 * The WPIntegrations mark, 20px cut, from brand/svg/wpi-admin-menu-icon.svg.

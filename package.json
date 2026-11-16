@@ -1,6 +1,6 @@
 {
 	"name": "wpintegrations-connector-for-mailerlite",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"private": true,
 	"description": "Admin app for the WPIntegrations Form Connector for MailerLite",
 	"scripts": {
